@@ -1,0 +1,94 @@
+---
+- name: Install OpenJDK 1.8
+  yum:
+    name: java-1.8.0-openjdk-devel
+    state: latest
+
+- name: Create kafka group
+  group:
+    name: '{{ kafka_group }}'
+    state: present
+  tags:
+    - kafka_group
+
+- name: Create kafka user
+  user:
+    name: '{{ kafka_user }}'
+    group: '{{ kafka_group }}'
+    state: present
+    createhome: no
+  tags:
+    - kafka_user
+
+- name: Download Apache Kafka
+  get_url:
+    url: http://www-eu.apache.org/dist/kafka/{{ kafka_version }}/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz
+    dest: /tmp
+  tags:
+    - kafka_download
+
+- name: Unpack Apache Kafka
+  unarchive:
+    src: /tmp/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz
+    dest: '{{ kafka_root_dir }}'
+    copy: no
+    group: '{{ kafka_group }}'
+    owner: '{{ kafka_user }}'
+  tags:
+    - kafka_unpack
+
+
+- name: Create symlink to kafka installation directory
+  file:
+    src: '{{ kafka_root_dir }}/kafka_{{ kafka_scala_version }}-{{ kafka_version }}'
+    dest: '{{ kafka_dir }}'
+    state: link
+    group: '{{ kafka_group }}'
+    owner: '{{ kafka_user }}'
+  tags:
+    - kafka_dirs
+
+- name: Template zookeeper systemd service file to /etc/systemd/system/zookeeper.service
+  template:
+    src: zookeeper.service.j2
+    dest: /etc/systemd/system/zookeeper.service
+  notify:
+    - Reload systemctl
+    - Restart zookeeper systemd
+  when: (ansible_distribution == "CentOS" and ansible_distribution_major_version > '6') or ( ansible_distribution == "RedHat" and ansible_distribution_major_version >6)
+  tags:
+    - zookeeper_service
+
+- name: Template kafka systemd service file to /etc/systemd/system/kafka.service
+  template:
+    src: kafka.service.j2
+    dest: /etc/systemd/system/kafka.service
+  notify:
+    - Reload systemctl
+    - Restart kafka systemd
+  when: (ansible_distribution == "CentOS" and ansible_distribution_major_version > '6') or ( ansible_distribution == "RedHat" and ansible_distribution_major_version >6)
+  tags:
+    - kafka_service
+
+- name: Install and start the zookeeper service
+  service:
+    name: zookeeper
+    state: started
+    enabled: yes
+  tags:
+    - zookeeper_service
+
+- name: Install and start the kafka service
+  service:
+    name: kafka
+    state: started
+    enabled: yes
+  tags:
+    - kafka_service
+
+- name: Delete the kafka archive file
+  file:
+    path: /tmp/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz
+    state: absent
+  tags:
+    - kafka_cleanup
