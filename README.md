@@ -1,70 +1,76 @@
 # KafkaServer
 
-This ansible Playbook provides resources for installing, configuring and managing Apache Kafka. Installs Apache Kafka from tarball and installs the appropriate configuration for your platform's init system.
+This ansible Playbook provides resources for installing, configuring and managing Apache Kafka. Installs Apache Kafka from a `.tgz` source and installs the appropriate configuration for your platform's init system.
+
+It also installs `OpenJDK1.8`.
+
+## Project Structure
+
+```ssh
+.
+├── LICENSE
+├── README.md
+├── ansible.cfg
+├── apache_kafka.yml
+├── hosts
+└── roles
+    └── install
+        ├── defaults
+        │   └── main.yml
+        ├── handlers
+        │   └── main.yml
+        ├── tasks
+        │   └── main.yml
+        └── templates
+            ├── kafka.service.j2
+            └── zookeeper.service.j2
+```
 
 ## Requirements
 
 ### Platform Support
 
-- RHEL 7.x
-- CentOS 7.x
+* RHEL 7.x
+* CentOS 7.x
 
-### Cookbook Dependencies and requirements
+### Versions
 
-This cookbook uses test-kitchen `kitchen-azurerm` driver in order to run integration testing. More information about this driver can be found [here](https://github.com/test-kitchen/kitchen-azurerm)
-It also assumes you have Azure CLI installed and configured and you have access to an active Azure subscription.
+* ansible 2.9.1
 
-It comes with a `.kitchen.azure.yml` test-kitchen configuration file and in order to use it you need to set the following environment variables:
+### Authentication
+
+It uses key based authentication and it assumes you already have a key and you can configure the path using the _ansible_ssh_private_key_file_ variable in _`hosts`_ file.
+You can create one using this command:
 
 ```ssh
-export KITCHEN_YAML=.kitche.azure.yml
-export SSH_KEY={{Path to the ssh key to be used in order to ssh in the VM}}
-export SUBSCRIPTION_ID={{Your Azure Subscription}}
-export RG={{The Resource Group where all the resources are going to be stored}}
-export VNET={{VNET wehre the VM is going to be created}}
-export SUBNET={{subnet where the VM is going to created}}
+ssh-keygen -t rsa -b 4096 -m PEM -C vm@mydomain.com -f ~/.ssh/vm_ssh
 ```
 
-### Chef Requirements
+## Role Variables
 
-This cookbook has been tested using
+This variables and their default values are located in `roles/install/defaults/main.yml`
 
-- ChefDK version: 4.5.0
-
-## Attributes
-
-- `default['kafkaServer']['kafkaRepo']` - Sets where Apache Kafka would be downloaded from. By default is set `https://www-eu.apache.org/dist/kafka/`.
-- `default['kafkaServer']['kafkaVersion']` - Sets the version to be used. By defult is set to version `2.3.0`
-
-## Recipes
-
-This section describes the recipes in the cookbook and how to use them in your environment.
-
-- default - Includes the `kafkaServer::Install` recipe by default.
-
-- Install - Installs and configures Apache Kafka and OpenJDK.
+```ssh
+kafka_version: 2.3.0
+kafka_scala_version: 2.12
+kafka_user: kafkaAdmin
+kafka_group: kafkaAdmin
+kafka_root_dir: /opt
+kafka_dir: '{{ kafka_root_dir }}/kafka'
+```
 
 ## Usage
 
-Simply include the `kafkaServer` cookbook wherever you would like Apache Kafka installed, such as a run list ( `-r kafkaServer` ) or a cookbook (`include_recipe 'kafkaServer'`). By default, Apache Kafka `2.3.0` is installed. The `version` attribute is used to determine which version to install, and `kafkaRepo` specifies which repository to use and by default it uses `https://www-eu.apache.org/dist/kafka/`.
-
-### Example
-
-If you are using it with knife command
-
 ```ssh
-knife bootstrap [IP] -x [username] -i [ssh key] -N [Node Name] -E [environment] --sudo -r 'kafkaServer'
+ansible-playbook --syntax-check apache_kafka.yml
+ansible-playbook apache_kafka.yml
 ```
 
-If you want to include it in a cookbook
+## HOSTS file
 
-```ruby
-#metadata.rb
-depends 'kafkaServer'
+The `hosts` file is the inventory file where you need to provide the IPs of the servers that need to be configured. You can also configure the SSH Key to use, username and SSH port.
 
-#in your recipe
-include_recipe 'kafkaServer'
-```
+You can create test servers using [this terraform script](https://github.com/Chambras/azure-terraform-vms)
 
 ## Authors
 
